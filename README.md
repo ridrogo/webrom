@@ -1,6 +1,8 @@
-ModeradorBot
+# ModeradorBot beta
+Bot de Telegram para Administrar grupos, tipo Group Butler
+ModeradorBot código beta
 -------------------------
-Bot de telegram usando API conexiones.
+Bot de telegram usando API.
 
 Más información en la [API de Telegram](https://core.telegram.org/bots/api).
 
@@ -13,61 +15,64 @@ git clone https://github.com/ridrogo/ModeradorBot.git
 ```
 ```bash
 # Mover a directorio y cambiar permisos de arranque
-cd ModeradorBot && chmod +x run.sh
+cd ModeradorBot && chmod +x launch.sh
 ```
-Instalar ModeradorBot: 
+Instalar ModeradorBot Beta: 
 
 ```bash
-./run.sh install
+# Tested on Ubuntu 16.04
+
+$ wget https://raw.githubusercontent.com/ridrogo/ModeradorBot/beta/install.sh
+$ bash install.sh
 ```
-
-Al terminar la instalación te pedirá el apikey del bot, la ID Owner del Apikey del bot, tu ID en telegram o la ID de tu admin1, la ID de tu admin2 y tu canal, por favor, ingresalos y pulsa enter. (si no tienes un admin2 o canal puedes dejar esos valores en blanco con enter)
-
-Despúes, el bot ya estará funcionando si lo haz configurado bien, cualquier falla vuelvelo a configurar.
-
-
-**IMPORTANTE**    
-_Al iniciar ./run.sh config o al volver iniciar el instalador, config.lua será eliminado y reemplazado por el de origen, para evitar cualquier error propio, si ya haz personalizado el config.lua renombra o copia tu config.lua_.
-
-
-
-Más funciones del bash run.sh (en screen):
+or
 
 ```bash
-# Volver a iniciar una sesión normal
-./run.sh
+# Tested on Ubuntu 14.04, 15.04 and 16.04, Debian 7, Linux Mint 17.2
 
-# Arrancar ModeradorBot en screen, siempre arrancando
-./run.sh kp
+$ sudo apt-get update
+$ sudo apt-get upgrade
+$ sudo apt-get install libreadline-dev libssl-dev lua5.2 liblua5.2-dev git make unzip redis-server curl libcurl4-gnutls-dev
 
-# Detener última sesión de ModeradorBot en screen
-./run.sh kill
+# We are going now to install LuaRocks and the required Lua modules
 
-# Borrar logs por consola
-./run.sh rmlogs
+$ wget http://luarocks.org/releases/luarocks-2.2.2.tar.gz
+$ tar zxpf luarocks-2.2.2.tar.gz
+$ cd luarocks-2.2.2
+$ ./configure; sudo make bootstrap
+$ sudo luarocks install luasec
+$ sudo luarocks install luasocket
+$ sudo luarocks install redis-lua
+$ sudo luarocks install lua-term
+$ sudo luarocks install serpent
+$ sudo luarocks install dkjson
+$ sudo luarocks install Lua-cURL
+$ cd ..
 
-# Configurar y/o crear de nuevo el config.lua
-./run.sh config
+# Clone the repository and give the launch script permissions to be executed
+# If you want to clone the beta branch, use git clone with the [-b beta] option
 
+$ git clone clone https://github.com/ridrogo/ModeradorBot.git
+$ cd ModeradorBot && chmod +x launch.sh
 ```
 
-Opciones de run2.sh (en TMUX):
+Opciones de launch.sh (en TMUX):
 
 ```bash
 # Iniciar una sesión tmux
-./run.sh
+./launch.sh
 
 # Detener la sesiones (script de lectura de gbans, y script del bot. Tmux)
-./run.sh kill
+./launch.sh kill
 
 # Attach del bot (regresar a la sesión del bot. Tmux)
-./run.sh attach
+./launch.sh attach
 
 # Attach de los gbans (regresar a la sesión de los gbans. Tmux)
-./run.sh attach-gbans
+./launch.sh attach-gbans
 
 # Configurar y/o crear de nuevo el config.lua
-./run.sh config
+./launch.sh config
 
 ```
 

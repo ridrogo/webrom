@@ -1,11 +1,28 @@
-local function cron()
+local plugin = {}
+
+local function get_motivation(msg)
+	if msg.reply then
+		return msg.text:match(("%sban (.+)"):format(config.cmd))
+			or msg.text:match(("%skick (.+)"):format(config.cmd))
+			or msg.text:match(("%skick .+\n(.+)"):format(config.cmd))
+	else
+		if msg.text:find(config.cmd.."ban @%w[%w_]+ ") or msg.text:find(config.cmd.."kick @%w[%w_]+ ") then
+			return msg.text:match(config.cmd.."ban @%w[%w_]+ (.+)") or msg.text:match(config.cmd.."kick @%w[%w_]+ (.+)")
+		elseif msg.text:find(config.cmd.."ban %d+ ") or msg.text:find(config.cmd.."kick %d+ ") then
+			return msg.text:match(config.cmd.."ban %d+ (.+)") or msg.text:match(config.cmd.."kick %d+ (.+)")
+		elseif msg.entities then
+			return msg.text:match(config.cmd.."ban .+\n(.+)") or msg.text:match(config.cmd.."kick .+\n(.+)")
+		end
+	end			
+end	
+
+function plugin.cron()
 	local all = db:hgetall('tempbanned')
 	if next(all) then
-		for unban_time,info in pairs(all) do
+		for unban_time, info in pairs(all) do
 			if os.time() > tonumber(unban_time) then
 				local chat_id, user_id = info:match('(-%d+):(%d+)')
-				api.unbanUser(chat_id, user_id, true)
-				api.unbanUser(chat_id, user_id, false)
+				api.unbanUser(chat_id, user_id)
 				db:hdel('tempbanned', unban_time)
 				db:srem('chat:'..chat_id..':tempbanned', user_id) --hash needed to check if an user is already tempbanned or not
 			end
@@ -13,259 +30,161 @@ local function cron()
 	end
 end
 
-local function get_user_id(msg, blocks)
-	if msg.cb then
-		return blocks[2]
-	elseif msg.reply then
-		return msg.reply.from.id
-	elseif blocks[2] then
-		return res_user_group(blocks[2], msg.chat.id)
-	end
-end
-
-local function get_nick(msg, blocks, sender)
-	if sender then
-		return getname_id(msg)
-	elseif msg.reply then
-		return getname_id(msg.reply)
-	elseif blocks[2] then
-		return blocks[2]
-	end
-end
-
-local function getBanList(chat_id, ln)
-    local text = lang[ln].banhammer.banlist_header
-    local hash = 'chat:'..chat_id..':bannedlist'
-    local banned_users, mot = rdb.get(hash)
-    if not banned_users or not next(banned_users) then
-        return lang[ln].banhammer.banlist_empty, true
-    else
-        local i = 1
-        for banned_id,info in pairs(banned_users) do
-            text = text..'*'..i..'* - '..info.nick:mEscape()
-            if info.why then text = text..'\n*⌦* '..info.why:mEscape() end
-            text = text..'\n'
-            i = i + 1
-        end
-        return text
-    end
-end
-
 local function check_valid_time(temp)
 	temp = tonumber(temp)
 	if temp == 0 then
 		return false, 1
-	elseif temp > 10080 then --1 week
+	elseif temp > 168 then --1 week
 		return false, 2
 	else
 		return temp
 	end
 end
 
-local function get_time_reply(minutes)
+local function get_hours_from_string(input)
+	if input:match('^%d+$') then
+		return tonumber(input)
+	else
+		local days = input:match('(%d)%s?d')
+		if not days then days = 0 end
+		local hours = input:match('(%d%d?)%s?h')
+		if not hours then hours = 0 end
+		if not days and not hours then
+			return input:match('(%d+)')
+		else
+			return ((tonumber(days))*24)+(tonumber(hours))
+		end
+	end
+end
+
+local function get_time_reply(hours)
 	local time_string = ''
 	local time_table = {}
-	time_table.days = math.floor(minutes/(60*24))
-	minutes = minutes - (time_table.days*60*24)
-	time_table.hours = math.floor(minutes/60)
-	time_table.minutes = minutes % 60
-	if not(time_table.days == 0) then
+	time_table.days = math.floor(hours/24)
+	time_table.hours = hours - (time_table.days*24)
+	if time_table.days ~= 0 then
 		time_string = time_table.days..'d'
 	end
-	if not(time_table.hours == 0) then
+	if time_table.hours ~= 0 then
 		time_string = time_string..' '..time_table.hours..'h'
 	end
-	time_string = time_string..' '..time_table.minutes..'m'
 	return time_string, time_table
 end
 
-local action = function(msg, blocks, ln)
+function plugin.onTextMessage(msg, blocks)
 	if msg.chat.type ~= 'private' then
-		if is_mod(msg) then
-			--commands that don't need a target user
-			if blocks[1] == 'kickme' then
-				api.sendReply(msg, lang[ln].kick_errors[2], true)
-				return
-			end
-			if blocks[1] == 'banlist' and not blocks[2] then
-   				local banlist, is_empty = getBanList(msg.chat.id, ln)
-   				if is_empty then
-   					api.sendReply(msg, banlist, true)
-   				else
-   					api.sendKeyboard(msg.chat.id, banlist, {inline_keyboard={{{text = 'Clean', callback_data = 'banlist-'}}}}, true)
-   				end
-   				return
-   			end
-		    if blocks[1] == 'banlist' and blocks[2] and blocks[2] == '-' then
-		    	local res, error = rdb.rem('chat:'..msg.chat.id..':bannedlist')
-		    	if res then
-		    		if msg.cb then --if cleaned via the inline button
-		    			api.editMessageText(msg.chat.id, msg.message_id, lang[ln].banhammer.banlist_cleaned..'\n`(Admin: '..msg.from.first_name:mEscape()..')`', false, true)
-		    		else --if cleaned via message
-		    			api.sendReply(msg, lang[ln].banhammer.banlist_cleaned, true)
-		    		end
-	    		else
-	    			local text
-	    			--get thetext
-		    		if error:match('hash does not exists') then
-		    			text = lang[ln].banhammer.banlist_empty
-		    		else
-		    			text = lang[ln].banhammer.banlist_error
-		    		end
-		    		--reply or edit
-		    		if msg.cb then
-		    			api.editMessageText(msg.chat.id, msg.message_id, text, false, true)
-		    		else
-		    			api.sendReply(msg, text, true)
-		    		end
-    			end
-    			return
-	    	end
+		if roles.is_admin_cached(msg) then
 		    
-		    --commands that need a target user
+		    local user_id, error_translation_key = misc.get_user_id(msg, blocks)
 		    
-		    if not msg.reply_to_message and not blocks[2] and not msg.cb then
-		        api.sendReply(msg, lang[ln].banhammer.reply)
-		        return
+		    if not user_id then
+		    	api.sendReply(msg, _(error_translation_key), true) return
 		    end
 		    if msg.reply and msg.reply.from.id == bot.id then return end
 		 	
 		 	local res
 		 	local chat_id = msg.chat.id
+		 	local admin, kicked = misc.getnames_complete(msg, blocks)
+		 	
+		 	--print(get_motivation(msg))
 		 	
 		 	if blocks[1] == 'tempban' then
 				if not msg.reply then
-					api.sendReply(msg, lang[ln].banhammer.reply)
+					api.sendReply(msg, _("_Reply to someone_"), true)
 					return
 				end
 				local user_id = msg.reply.from.id
-				local temp, code = check_valid_time(blocks[2])
+				local hours = get_hours_from_string(blocks[2])
+				if not hours then return end
+				local temp, code = check_valid_time(hours)
 				if not temp then
 					if code == 1 then
-						api.sendReply(msg, lang[ln].banhammer.tempban_zero)
+						api.sendReply(msg, _("For this, you can directly use /ban"))
 					else
-						api.sendReply(msg, lang[ln].banhammer.tempban_week)
+						api.sendReply(msg, _("_The time limit is one week (168 hours)_"), true)
 					end
 					return
 				end
 				local val = msg.chat.id..':'..user_id
-				local unban_time = os.time() + (temp * 60)
+				local unban_time = os.time() + (temp * 60 * 60)
 				
 				--try to kick
-				local res, motivation = api.banUser(chat_id, user_id, is_normal_group, ln)
+				local res, code, motivation = api.banUser(chat_id, user_id)
 		    	if not res then
 		    		if not motivation then
-		    			motivation = lang[ln].banhammer.general_motivation
+		    			motivation = _("I can't kick this user.\n"
+								.. "Either I'm not an admin, or the targeted user is!")
 		    		end
 		    		api.sendReply(msg, motivation, true)
 		    	else
-		    		cross.saveBan(user_id, 'tempban') --save the ban
+		    		misc.saveBan(user_id, 'tempban') --save the ban
 		    		db:hset('tempbanned', unban_time, val) --set the hash
-					local time_reply = get_time_reply(temp)
-					local banned_name = getname(msg.reply)
+					local time_reply, time_table = get_time_reply(temp)
 					local is_already_tempbanned = db:sismember('chat:'..chat_id..':tempbanned', user_id) --hash needed to check if an user is already tempbanned or not
+					local text
 					if is_already_tempbanned then
-						api.sendMessage(chat_id, make_text(lang[ln].banhammer.tempban_updated..time_reply, banned_name))
+						text = _("Ban time updated for %s. Ban expiration: %s\n<b>Admin</b>: %s"):format(kicked, time_reply, admin)
 					else
-						api.sendMessage(chat_id, make_text(lang[ln].banhammer.tempban_banned..time_reply, banned_name))
+						text = _("User %s banned by %s.\n<i>Ban expiration:</i> %s"):format(kicked, admin, time_reply)
 						db:sadd('chat:'..chat_id..':tempbanned', user_id) --hash needed to check if an user is already tempbanned or not
 					end
+					misc.logEvent('tempban', msg, {motivation = get_motivation(msg), admin = admin, user = kicked, user_id = user_id, h = time_table.hours, d = time_table.days})
+					api.sendMessage(chat_id, text, 'html')
 				end
 			end
-		 	
-		 	--get the user id, send message and break if not found
-		 	local user_id = get_user_id(msg, blocks)
-		 	if not user_id then
-		 		api.sendReply(msg, lang[ln].bonus.no_user, true)
-		 		return
-		 	end
-		 	
 		 	if blocks[1] == 'kick' then
-		    	local res, motivation = api.kickUser(chat_id, user_id, ln)
+		    	local res, code, motivation = api.kickUser(chat_id, user_id)
 		    	if not res then
 		    		if not motivation then
-		    			motivation = lang[ln].banhammer.general_motivation
+		    			motivation = _("I can't kick this user.\n"
+								.. "Either I'm not an admin, or the targeted user is!")
 		    		end
 		    		api.sendReply(msg, motivation, true)
 		    	else
-		    		cross.saveBan(user_id, 'kick')
-		    		api.sendMessage(msg.chat.id, lang[ln].banhammer.kicked:build_text(get_nick(msg, false, true):mEscape(), get_nick(msg, blocks):mEscape()), true)
+		    		misc.saveBan(user_id, 'kick')
+		    		misc.logEvent('kick', msg, {motivation = get_motivation(msg), admin = admin, user = kicked, user_id = user_id})
+		    		api.sendMessage(msg.chat.id, _("%s kicked %s!"):format(admin, kicked), 'html')
 		    	end
 	    	end
-	   		
-	   		local is_normal_group = false
-	   		if msg.chat.type == 'group' then is_normal_group = true end
-	   		
 	   		if blocks[1] == 'ban' then
-	   			local res, motivation = api.banUser(chat_id, user_id, is_normal_group, ln)
+	   			local res, code, motivation = api.banUser(chat_id, user_id)
 		    	if not res then
 		    		if not motivation then
-		    			motivation = lang[ln].banhammer.general_motivation
+		    			motivation = _("I can't kick this user.\n"
+								.. "Either I'm not an admin, or the targeted user is!")
 		    		end
 		    		api.sendReply(msg, motivation, true)
 		    	else
 		    		--save the ban
-		    		cross.saveBan(user_id, 'ban')
-		    		--add to banlist
-		    		local nick = get_nick(msg, blocks) --banned user
-		    		local why
-		    		if msg.reply then
-		    			why = msg.text:input()
-		    		else
-		    			why = msg.text:gsub('^/ban @[%w_]+%s?', '')
-		    		end
-		    		cross.addBanList(msg.chat.id, user_id, nick, why)
-		    		api.sendKeyboard(msg.chat.id, lang[ln].banhammer.banned:build_text(get_nick(msg, false, true):mEscape(), nick:mEscape()), {inline_keyboard = {{{text = 'Unban', callback_data = 'unban:'..user_id}}}}, true)
+		    		misc.saveBan(user_id, 'ban')
+		    		misc.logEvent('ban', msg, {motivation = get_motivation(msg), admin = admin, user = kicked, user_id = user_id})
+		    		api.sendMessage(msg.chat.id, _("%s banned %s!"):format(admin, kicked), 'html')
 		    	end
     		end
    			if blocks[1] == 'unban' then
-   				local status = cross.getUserStatus(chat_id, user_id)
-   				if not(status == 'kicked') and not(msg.chat.type == 'group') then
-   					api.sendReply(msg, lang[ln].banhammer.not_banned, true)
-   					return
-   				end
-   				local res = api.unbanUser(chat_id, user_id, is_normal_group)
-   				local text
-   				if not res and msg.chat.type == 'group' then
-   					--api.sendReply(msg, lang[ln].banhammer.not_banned, true)
-   					text = lang[ln].banhammer.not_banned
-   				else
-   					cross.remBanList(msg.chat.id, user_id)
-   					text = lang[ln].banhammer.unbanned
-   					--api.sendReply(msg, lang[ln].banhammer.unbanned, true)
-   				end
-   				if not msg.cb then
-   					api.sendReply(msg, text, true)
-   				else
-   					api.editMessageText(msg.chat.id, msg.message_id, text..'\n`['..user_id..']\n(Admin: '..msg.from.first_name:mEscape()..')`', false, true)
-   				end
+   				api.unbanUser(chat_id, user_id)
+   				local text = _("%s unbanned by %s!"):format(kicked, admin)
+   				api.sendReply(msg, text, 'html')
    			end
 		else
 			if blocks[1] == 'kickme' then
-				api.kickUser(msg.chat.id, msg.from.id, ln)
-			end
-			if msg.cb then --if the user tap on 'unban', show the pop-up
-				api.answerCallbackQuery(msg.cb_id, lang[ln].not_mod:mEscape_hard())
+				api.kickUser(msg.chat.id, msg.from.id)
 			end
 		end
 	end
 end
 
-return {
-	action = action,
-	cron = cron,
-	triggers = {
-		'^/(kickme)%s?',
-		'^/(kick) (@[%w_]+)',
-		'^/(kick)',
-		'^/(banlist)$',
-		'^/(banlist) (-)$',
-		'^/(ban) (@[%w_]+)',
-		'^/(ban)',
-		'^/(tempban) (%d+)',
-		'^/(unban) (@[%w_]+)',
-		'^/(unban)',
-		'^###cb:(unban):(%d+)$',
-		'^###cb:(banlist)(-)$',
+plugin.triggers = {
+	onTextMessage = {
+		config.cmd..'(kickme)',
+		config.cmd..'(kick) (.+)',
+		config.cmd..'(kick)$',
+		config.cmd..'(ban) (.+)',
+		config.cmd..'(ban)$',
+		config.cmd..'(tempban) (.+)',
+		config.cmd..'(unban) (.+)',
+		config.cmd..'(unban)$',
 	}
 }
+
+return plugin

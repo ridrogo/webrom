@@ -1,23 +1,38 @@
-local triggers = {
-	'^/test'
-}
+--Simple test plugin. If it triggers /test it will run your function. Please add it, before trying :)
+local plugin = {}
 
-local function on_each_msg(msg, ln)
-	return msg
+function plugin.onEachMessage(msg)
+	return true
 end
 
-local action = function(msg, blocks, ln)
-if blocks[1] == 'isbanned' and blocks[2] then
-      if is_blocked(blocks[2]) then
-        api.sendReply(msg, '✅ Este usuario si esta globalmente banneado.')
-      else
-        api.sendReply(msg, '❌❗️Este usuario no esta globalmente banneado o se ha ingresado el alias en lugar del ID. Si quieres reportarlo puedes reportarlo por privado a @Webrom o @Webrom2. Gracias.')
-      end
-    end
+plugin.onEachMessage = nil
+
+function plugin.onTextMessage(msg, blocks)
+	--test your stuffs here
+	api.sendMessage(msg.chat.id, 'This is a button', nil, {inline_keyboard={{{text = 'Open tha chat list!', switch_inline_query = 'random parameter'}}}})
 end
 
-return {
-	action = action,
-	triggers = triggers,
-	test = true
+function plugin.onCallbackQuery(msg, blocks)
+	api.answerCallbackQuery(msg.cb_id, 'Hey')
+end
+
+function plugin.onInlineQuery(msg, blocks)
+	local input_message_content = {message_text = 'My ID: `'..msg.from.id..'`', parse_mode = 'Markdown'}
+	local reply_markup = {inline_keyboard={{{text = 'A button', callback_data = 'testcb'}}}}
+	local result = {{type = 'article', id = tostring(1), title = 'This is an example', input_message_content = input_message_content, reply_markup = reply_markup}}
+	api.answerInlineQuery(msg.id, result, 1, true, 'I dare you to tap me', 'testplugin')
+end
+
+plugin.triggers = {
+	onCallbackQuery = {
+		'^###cb:testcb$'
+	},
+	onTextMessage = {
+		'^/start testplugin'
+	},
+	onInlineQuery = {
+		'^###inline:(.*)'
+	}	
 }
+
+return plugin

@@ -1,241 +1,182 @@
 return {
-	bot_api_key = io.open("./data/key","r"):read(),
-	version = '3.1', -- /aupdate for v3.1
-	testing_mode = false,
+	bot_api_key = "363154736:AAEPK9FmkYqocczNeXlPjq4FW-e4MGbcCB8", --Please add your bot api key here!
+	google_key = 'AIzaSyDCDFIeCsP-Oi6APxskvCP0TbCih5GXxGA',
+	google_key2 = 'AIzaSyAQoLkk06FOxI3pl0pYZSgfY2pfatmQ7_Y',
+	google_key3 = 'AIzaSyACtE_2S8rftpJ_vwxfiUzZr6MqE5u1bLI',
 	cmd = '^[/!#]',
-	admin = {
-		owner = readowner,
-		admins = {
-			[readadmin1] = true,
-			[readadmin2] = true,
-		}
+	db = 2, --default redis db: 0
+	superadmins = {180791241, 123038464},
+	fileDownloadLocation = '/tmp/',
+	log = {
+		chat = -1001090815736, --Your log chat, where your bot must be added!
+		admin = 180791241, --The admin.
+		stats = nil
 	},
-	log_chat = -1001061713388,
+	human_readable_version = '4.2.0',
 	bot_settings = {
 		cache_time = {
-			adminlist = 18000, --5 hours (18000s)
+			adminlist = 18000, --5 hours (18000s) Admin Cache time, in seconds.
 		},
-		testing_mode = true,
-		multipurpose_mode = true,
-		plugins_esenciales = true,
-		plugins_opcionales = true,
-		plugins_test = false,
-		notify_bug = true,
-		log_api_errors = false
+		multipurpose_mode = false, --If this is enabled, the bot will activate the plugins from plugins/multipurpose
+		notify_bug = false, --Notify if a bug occurs!
+		log_api_errors = true, --Log errors, which happening whilst interacting with the bot api.
+		stream_commands = true,
+		admin_mode = false,
+		debug_connections = false,
+		realm_max_members = 60,
+		realm_max_subgroups = 6
 	},
-	channel = 'readchannel', --channel username with the '@'
-	help_group = 'https://telegram.me/joinchat/CsanyT7Z5Wxk8eO_se0BCA', --group link, not username!
-	languages = 'languages.lua',
-	plugins_esenciales = {
-		'onmessage.lua',
-		'plugins.lua',
-		'configure.lua',
-		'all.lua',
-		'admin.lua',
-		'banhammer.lua',
+	channel = '@groupbutler_ch', --channel username with the '@'
+	source_code = 'https://github.com/RememberTheAir/GroupButler',
+	help_groups = {
+		['Internatonal (English)'] = 'https://telegram.me/joinchat/EKBQLj7Zf6lE2K_Pk0Epcg', --group link, not (at)username! If you have your own support group, modify here!
+		['Italian'] = 'https://telegram.me/ITAgroupbutler',
+		['Persian'] = 'https://telegram.me/joinchat/CTDUTkCOsEt4DZT-SUQdBQ',
+		['Russian'] = 'https://telegram.me/rubutler',
+		['Spanish'] = 'https://telegram.me/ESgroupbutler'
+	},--
+	plugins = {
+		'onmessage.lua', --THIS MUST BE THE FIRST: IF AN USER IS FLOODING/IS BLOCKED, THE BOT WON'T GO THROUGH PLUGINS
+		'welcome.lua',
+		'antispam.lua', --SAME OF onmessage.lua
+		'antispampro.lua',
+		--'realms.lua', --must stay here
 		'gban.lua',
+		'res.lua',
+		'sendbychannel.lua',
+		'configure.lua',
+		'menu.lua',
+		'dashboard.lua',
+		'banhammer.lua',
 		'users.lua',
 		'help.lua',
 		'rules.lua',
-		'settings.lua',
-		'about.lua',
-		'flag.lua',
 		'service.lua',
 		'links.lua',
 		'warn.lua',
 		'setlang.lua',
 		'floodmanager.lua',
+		'pin.lua',
 		'mediasettings.lua',
 		'private.lua',
-		'test.lua'
-	},
-	plugins_opcionales = {
-		"calculator.lua",
-		"test.lua",
-		"beta.lua",
-		'chatmodules.lua',
-		'faq.lua',
-		'caracola.lua',
-		'comprimirlink.lua',
-		'sendfiles.lua',
-		'killer.lua',
-		'say.lua',
-		'contact.lua',
-		'talk.lua',
-		'error.lua',
-		'saludador.lua',
-		'sera.lua',
-		'isbanned.lua',
-		'publi.lua',
-		'antigroserias.lua',
-		'antispam.lua',
-		'codes.lua',
-		'extra.lua'
-	},
-	plugins_test = {
-		'gbanner.lua',
-		'inline.lua',
-		'plugin2.lua',
-	},
---[[	plugins = {
-		'onmessage.lua',
-		'configure.lua',
-		'all.lua',
 		'admin.lua',
-		'banhammer.lua',
-		'users.lua',
-		'help.lua',
-		'rules.lua',
-		'settings.lua',
-		'about.lua',
-		'flag.lua',
-		'service.lua',
-		'links.lua',
-		'warn.lua',
-		'setlang.lua',
-		'floodmanager.lua',
-		'mediasettings.lua',
-		'private.lua',
-		'test.lua',
-		'faq.lua',
-		'caracola.lua',
-		'comprimirlink.lua',
-		'sendfiles.lua',
-		'killer.lua',
-		'say.lua',
-		'contact.lua',
-		'talk.lua',
-		'error.lua',
-		'saludador.lua',
-		'sera.lua',
-		'isbanned.lua',
-		'publi.lua',
-		'gbanner.lua',
-		'gban.lua',
-		'antigroserias.lua',
-		'antispam.lua',
-		'plugins.lua',
-		'plugin2.lua',
-		'inline.lua',
-		"codes.lua",
-		'extra.lua'
+		'backup.lua',
+		--'test.lua',
+		'logchannel.lua',
+		'voteban.lua',
+		'report.lua',
+		'private_settings.lua',
+		'google.lua',
+		'tts.lua',
+		'ysearch.lua',
+		'bash.lua',
+		'extra.lua', --must be the last plugin in the list.
 	},
-]]		
-	multipurpose_plugins = {
-		'commit.lua',
-		'eightball.lua'
-	},
+	multipurpose_plugins = {},
 	available_languages = {
-		'es',
-		--'it',
-		'en'
-		--'br',
-		--'ru',
-		--'de',
-		--'sv',
-		--'ar',
-		--'fr'
-		--more to come
+		['en'] = 'English 🇬🇧',
+		['it'] = 'Italiano 🇮🇹',
+		['es'] = 'Español 🇪🇸',
+		['pt_BR'] = 'Português 🇧🇷',
+		['ru'] = 'Русский 🇷🇺',
+		['de'] = 'Deutsch 🇩🇪',
+		--['sv'] = 'Svensk 🇸🇪',
+		['ar'] = 'العربية 🇸🇩',
+		--['fr'] = 'Français 🇫🇷',
+		['zh'] = '中文 🇨🇳',
+		['fa'] = 'فارسی 🇮🇷',
+		['id'] = 'Bahasa Indonesia 🇮🇩'
+		-- more languages will come
 	},
-	media_list = {
-		'image',
-		'audio',
-		'video',
-		'sticker',
-		'gif',
-		'voice',
-		'contact',
-		'file',
-		'link'
-	},
-	chat_settings = {
+	allow_fuzzy_translations = true,
+	chat_settings = { --default chat_settings for groups.
 		['settings'] = {
-			['Rules'] = 'no',
-			['About'] = 'no',
-			['Modlist'] = 'no',
-			['Report'] = 'no',
-			['Welcome'] = 'no',
-			['Extra'] = 'no',
-			['Flood'] = 'no'
+			['Welcome'] = 'off',
+			['Goodbye'] = 'off',
+			['Extra'] = 'on',
+			['Flood'] = 'off',
+			['Silent'] = 'off',
+			['Rules'] = 'off',
+			['Reports'] = 'off',
+			['voteban'] = 'off',
+			['Welbut'] = 'off'
+		},
+		['antispam'] = {
+			['AntispamPro'] = 'notalwd',
+			['links'] = 'alwd',
+			['forwards'] = 'alwd',
+			['warns'] = 2,
+			['action'] = 'ban'
 		},
 		['flood'] = {
 			['MaxFlood'] = 5,
 			['ActionFlood'] = 'kick'
 		},
 		['char'] = {
-			['Arab'] = 'allowed',
+			['Arab'] = 'allowed', --'kick'/'ban'
 			['Rtl'] = 'allowed'
 		},
 		['floodexceptions'] = {
-			['image'] = 'no',
+			['text'] = 'no',
+			['photo'] = 'no', -- image
+			['forward'] = 'no',
 			['video'] = 'no',
 			['sticker'] = 'no',
-			['gif'] = 'no'
+			['gif'] = 'no',
 		},
 		['warnsettings'] = {
 			['type'] = 'ban',
+			['mediatype'] = 'ban',
 			['max'] = 3,
 			['mediamax'] = 2
 		},
 		['welcome'] = {
-			['type'] = 'composed',
+			['type'] = 'no',
 			['content'] = 'no'
 		},
+		['goodbye'] = {
+			['type'] = 'custom',
+		},
+		['voteban'] = {
+			['quorum'] = 5,
+			['duration'] = 1800,  -- half an hour
+		},
 		['media'] = {
-			['image'] = 'allowed',
-			['audio'] = 'allowed',
-			['video'] = 'allowed',
-			['sticker'] = 'allowed',
-			['gif'] = 'allowed',
-			['voice'] = 'allowed',
-			['contact'] = 'allowed',
-			['file'] = 'allowed',
-			['link'] = 'allowed',
-			['TGlink'] = 'allowed'
+			['photo'] = 'ok', --'notok' | image
+			['audio'] = 'ok',
+			['video'] = 'ok',
+			['sticker'] = 'ok',
+			['gif'] = 'ok',
+			['voice'] = 'ok',
+			['contact'] = 'ok',
+			['document'] = 'ok', -- file
+			['link'] = 'ok',
+			['game'] = 'ok',
+			['location'] = 'ok'
+		},
+		['tolog'] = {
+			['ban'] = 'no',
+			['kick'] = 'no',
+			['tempban'] = 'no',
+			['warn'] = 'no',
+			['nowarn'] = 'no',
+			['mediawarn'] = 'no',
+			['spamwarn'] = 'no',
+			['flood'] = 'no',
+			['new_chat_member'] = 'no',
+			['new_chat_photo'] = 'no',
+			['delete_chat_photo'] = 'no',
+			['new_chat_title'] = 'no',
+			['pinned_message'] = 'no'
 		},
 	},
-	chat_custom_texts = {'rules', 'about', 'extra'},
-	api_errors = {
-		[101] = 'Not enough rights to kick participant', --SUPERGROUP: bot is not admin
-		[102] = 'USER_ADMIN_INVALID', --SUPERGROUP: trying to kick an admin
-		[103] = 'method is available for supergroup chats only', --NORMAL: trying to unban
-		[104] = 'Only creator of the group can kick administrators from the group', --NORMAL: trying to kick an admin
-		[105] = 'Bad Request: Need to be inviter of the user to kick it from the group', --NORMAL: bot is not an admin or everyone is an admin
-		[106] = 'USER_NOT_PARTICIPANT', --NORMAL: trying to kick an user that is not in the group
-		[107] = 'CHAT_ADMIN_REQUIRED', --NORMAL: bot is not an admin or everyone is an admin
-		[108] = 'there is no administrators in the private chat', --something asked in a private chat with the api methods 2.1
-
-		[110] = 'PEER_ID_INVALID', --user never started the bot
-		[111] = 'message is not modified', --the edit message method hasn't modified the message
-		[112] = 'Can\'t parse message text: Can\'t find end of the entity starting at byte offset %d+', --the markdown is wrong and breaks the delivery
-		[113] = 'group chat is migrated to a supergroup chat', --group updated to supergroup
-		[114] = 'Message can\'t be forwarded', --unknown
-		[115] = 'Message text is empty', --empty message
-		[116] = 'message not found', --message id invalid, I guess
-		[117] = 'chat not found', --I don't know
-		[118] = 'Message is too long', --over 4096 char
-		[119] = 'User not found', --unknown user_id
-
-		[120] = 'Can\'t parse reply keyboard markup JSON object', --keyboard table invalid
-		[121] = 'Field \\\"inline_keyboard\\\" of the InlineKeyboardMarkup should be an Array of Arrays', --inline keyboard is not an array of array
-		[122] = 'Can\'t parse inline keyboard button: InlineKeyboardButton should be an Object',
-		[123] = 'Bad Request: Object expected as reply markup', --empty inline keyboard table
-		[124] = 'QUERY_ID_INVALID', --callback query id invalid
-		[125] = 'CHANNEL_PRIVATE', --I don't know
-		[126] = 'MESSAGE_TOO_LONG', --text of an inline callback answer is too long
-		[127] = 'wrong user_id specified', --invalid user_id
-		[128] = 'Too big total timeout [%d%.]+', --something about spam an inline keyboards
-		[129] = 'BUTTON_DATA_INVALID', --callback_data string invalid
-
-		[130] = 'Type of file to send mismatch', --trying to send a media with the wrong method
-		[131] = 'MESSAGE_ID_INVALID', --I don't know
-		[132] = 'Can\'t parse inline keyboard button: Can\'t find field "text"', --the text of a button could be nil
-		[133] = 'Can\'t parse inline keyboard button: Field \\\"text\\\" must be of type String',
-		[134] = 'USER_ID_INVALID',
-		[135] = 'CHAT_INVALID',
-
-		[403] = 'Bot was blocked by the user', --user blocked the bot
-		[429] = 'Too many requests: retry later', --the bot is hitting api limits
-		[430] = 'Too big total timeout', --too many callback_data requests
+	private_settings = {
+		rules_on_join = 'off',
+		reports = 'off'
+	},
+	chat_custom_texts = {'extra', 'info', 'links', 'warns', 'mediawarn', 'spamwarns'},
+	bot_keys = {
+		d3 = {'bot:general', 'bot:usernames', 'bot:chat:latsmsg'},
+		d2 = {'bot:groupsid', 'bot:groupsid:removed', 'tempbanned', 'bot:blocked', 'remolden_chats'} --remolden_chats: chat removed with $remold command
 	}
 }

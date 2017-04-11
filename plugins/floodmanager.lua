@@ -1,20 +1,34 @@
-local function do_keyboard_flood(chat_id, ln)
+local plugin = {}
+
+local function get_button_description(key)
+    if key == 'num' then
+        return _("⚖ Current sensitivity. Tap on the + or the - to change it")
+    elseif key == 'voice' then
+        return _([[Choose which media must be ignored by the antiflood (the bot won't consider them).
+✅: ignored
+❌: not ignored]])
+    else
+        return _("Description not available")
+    end
+end
+
+local function do_keyboard_flood(chat_id)
     --no: enabled, yes: disabled
-    local status = db:hget('chat:'..chat_id..':settings', 'Flood') or 'yes' --check (default: disabled)
-    if status == 'no' then
-        status = '✅ | ON'
-    elseif status == 'yes' then
-        status = '❌ | OFF'
+    local status = db:hget('chat:'..chat_id..':settings', 'Flood') or config.chat_settings['settings']['Flood'] --check (default: disabled)
+    if status == 'on' then
+        status = _("✅ | ON")
+    elseif status == 'off' then
+        status = _("❌ | OFF")
     end
     
     local hash = 'chat:'..chat_id..':flood'
-    local action = (db:hget(hash, 'ActionFlood')) or 'kick'
+    local action = (db:hget(hash, 'ActionFlood')) or config.chat_settings['flood']['ActionFlood']
     if action == 'kick' then
-        action = '⚡️ '..action
+        action = _("👞️ kick")
     else
-        action = '⛔ ️'..action
+        action = _("🔨 ️ban")
     end
-    local num = (db:hget(hash, 'MaxFlood')) or 5
+    local num = (db:hget(hash, 'MaxFlood')) or config.chat_settings['flood']['MaxFlood']
     local keyboard = {
         inline_keyboard = {
             {
@@ -23,85 +37,94 @@ local function do_keyboard_flood(chat_id, ln)
             },
             {
                 {text = '➖', callback_data = 'flood:dim:'..chat_id},
-                {text = num, callback_data = 'flood:alert:num'},
+                {text = num, callback_data = 'flood:alert:num:'..chat_id},
                 {text = '➕', callback_data = 'flood:raise:'..chat_id},
             }
         }
     }
     
     local exceptions = {
-        ['text'] = lang[ln].floodmanager.text,
-        ['sticker'] = lang[ln].floodmanager.sticker,
-        ['image'] = lang[ln].floodmanager.image,
-        ['gif'] = lang[ln].floodmanager.gif,
-        ['video'] = lang[ln].floodmanager.video
+        text = _("Texts"),
+		forward = _("Forwards"),
+        sticker = _("Stickers"),
+        photo = _("Images"),
+        gif = _("GIFs"),
+        video = _("Videos"),
     }
-    hash = 'chat:'..chat_id..':floodexceptions'
+    local hash = 'chat:'..chat_id..':floodexceptions'
     for media, translation in pairs(exceptions) do
         --ignored by the antiflood-> yes, no
-        local exc_status = (db:hget(hash, media)) or 'no'
+        local exc_status = db:hget(hash, media) or config.chat_settings['floodexceptions'][media]
         if exc_status == 'yes' then
             exc_status = '✅'
         else
             exc_status = '❌'
         end
         local line = {
-            {text = translation, callback_data = 'flood:alert:voice'},
+            {text = translation, callback_data = 'flood:alert:voice:'..chat_id},
             {text = exc_status, callback_data = 'flood:exc:'..media..':'..chat_id},
         }
         table.insert(keyboard.inline_keyboard, line)
     end
     
+    --back button
+    table.insert(keyboard.inline_keyboard, {{text = '🔙', callback_data = 'config:back:'..chat_id}})
+    
     return keyboard
 end
 
-local function action(msg, blocks, ln)
-    
-    if not msg.cb and msg.chat.type == 'private' then return end
-    
-    local chat_id
-    if msg.cb then
-        chat_id = msg.target_id
-    else
-        chat_id = msg.chat.id
+local function changeFloodSettings(chat_id, screm)
+    local hash = 'chat:'..chat_id..':flood'
+    if type(screm) == 'string' then
+        if screm == 'kick' then
+            db:hset(hash, 'ActionFlood', 'ban')
+            return _("Flooders will be banned")
+        else
+            db:hset(hash, 'ActionFlood', 'kick')
+            return _("Flooders will be kicked")
+        end
+    elseif type(screm) == 'number' then
+        local old = tonumber(db:hget(hash, 'MaxFlood')) or 5
+        local new
+        if screm > 0 then
+            new = db:hincrby(hash, 'MaxFlood', 1)
+            if new > 25 then
+                db:hincrby(hash, 'MaxFlood', -1)
+                return _("%d is not a valid value!\n"):format(new)
+                    .. ("The value should be higher than 3 and lower then 26")
+            end
+        elseif screm < 0 then
+            new = db:hincrby(hash, 'MaxFlood', -1)
+            if new < 4 then
+                db:hincrby(hash, 'MaxFlood', 1)
+                return _("%d is not a valid value!\n"):format(new)
+                    .. ("The value should be higher than 3 and lower then 26")
+            end
+        end
+        return string.format('%d → %d', old, new)
+    end
+end
+
+function plugin.onCallbackQuery(msg, blocks)
+    local chat_id = msg.target_id
+    if not chat_id then
+        api.sendAdmin('missing chat_id -> antiflood') return
     end
     
-    local text, keyboard
+	if not roles.is_admin_cached(chat_id, msg.from.id) then
+		api.answerCallbackQuery(msg.cb_id, _("You're no longer an admin"))
+	else
+	    local header = _("You can manage the antiflood settings from here")
     
-    if not msg.cb then
-        if not is_mod(msg) then return end
-        if blocks[1]:match('%d%d?') then
-            if tonumber(blocks[1]) < 4 or tonumber(blocks[1]) > 25 then
-				api.sendReply(msg, make_text(lang[ln].floodmanager.number_invalid, blocks[1]), true)
-			else
-	    	    local new = tonumber(blocks[1])
-	    	    local old = tonumber(db:hget('chat:'..msg.chat.id..':flood', 'MaxFlood')) or 5
-	    	    if new == old then
-	            	api.sendReply(msg, make_text(lang[ln].floodmanager.not_changed, new), true)
-	    	    else
-	            	db:hset('chat:'..msg.chat.id..':flood', 'MaxFlood', new)
-	            	api.sendReply(msg, make_text(lang[ln].floodmanager.changed_plug, old, new), true)
-	    	    end
-            end
-            return
+        local text
+        
+        if blocks[1] == 'config' then
+            text = _("Antiflood settings")
         end
-        text = lang[ln].floodmanager.header
-        keyboard = do_keyboard_flood(chat_id, ln)
-        local res = api.sendKeyboard(msg.from.id, text, keyboard, true)
-        if not res then
-            cross.sendStartMe(msg, ln)
-        else
-            api.sendReply(msg, lang[ln].floodmanager.sent, true)
-        end
-    else
+    
         if blocks[1] == 'alert' then
-            if blocks[2] == 'num' then
-                text = '⚖'..lang[ln].floodmanager.number_cb
-            elseif blocks[2] == 'voice' then
-                text = '⚠️ '..lang[ln].bonus.menu_cb_media
-            end
-            api.answerCallbackQuery(msg.cb_id, text)
-            return
+            text = get_button_description(blocks[2])
+            api.answerCallbackQuery(msg.cb_id, text, true) return
         end
         
         if blocks[1] == 'exc' then
@@ -110,46 +133,48 @@ local function action(msg, blocks, ln)
             local status = (db:hget(hash, media)) or 'no'
             if status == 'no' then
                 db:hset(hash, media, 'yes')
-                text = '❎ '..make_text(lang[ln].floodmanager.ignored, media)
+                text = _("❎ [%s] will be ignored by the anti-flood"):format(media)
             else
                 db:hset(hash, media, 'no')
-                text = '🚫 '..make_text(lang[ln].floodmanager.not_ignored, media)
+                text = _("🚫 [%s] won't be ignored by the anti-flood"):format(media)
             end
         end
         
         local action
         if blocks[1] == 'action' or blocks[1] == 'dim' or blocks[1] == 'raise' then
             if blocks[1] == 'action' then
-                action = (db:hget('chat:'..chat_id..':flood', 'ActionFlood')) or 'kick'
+                action = db:hget('chat:'..chat_id..':flood', 'ActionFlood') or 'kick'
             elseif blocks[1] == 'dim' then
                 action = -1
             elseif blocks[1] == 'raise' then
                 action = 1
             end
-            text = cross.changeFloodSettings(chat_id, action, ln):mEscape_hard()
+            text = changeFloodSettings(chat_id, action)
         end
         
         if blocks[1] == 'status' then
-            local status = db:hget('chat:'..chat_id..':settings', 'Flood') or 'yes'
-            text = cross.changeSettingStatus(chat_id, 'Flood', ln):mEscape_hard()
+            local status = db:hget('chat:'..chat_id..':settings', 'Flood') or config.chat_settings['settings']['Flood']
+            text = misc.changeSettingStatus(chat_id, 'Flood')
         end
         
-        keyboard = do_keyboard_flood(chat_id, ln)
-        api.editMessageText(msg.chat.id, msg.message_id, lang[ln].floodmanager.header, keyboard, true)
+        local keyboard = do_keyboard_flood(chat_id)
+        api.editMessageText(msg.chat.id, msg.message_id, header, true, keyboard)
         api.answerCallbackQuery(msg.cb_id, text)
     end
 end
 
-return {
-    action = action,
-    triggers = {
-        '^/antiflood$',
-        '^/antiflood (%d%d?)$',
-        '^###cb:flood:(alert):(%w+)$',
-        '^###cb:flood:(status):(-%d+)$',
-        '^###cb:flood:(action):(-%d+)$',
-        '^###cb:flood:(dim):(-%d+)$',
-        '^###cb:flood:(raise):(-%d+)$',
-        '^###cb:flood:(exc):(%a+):(-%d+)$',
+plugin.triggers = {
+    onCallbackQuery = {
+        '^###cb:flood:(alert):(num)',
+        '^###cb:flood:(alert):(voice)',
+        '^###cb:flood:(status):(-?%d+)$',
+        '^###cb:flood:(action):(-?%d+)$',
+        '^###cb:flood:(dim):(-?%d+)$',
+        '^###cb:flood:(raise):(-?%d+)$',
+        '^###cb:flood:(exc):(%a+):(-?%d+)$',
+        
+        '^###cb:(config):antiflood:'
     }
 }
+
+return plugin
